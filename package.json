@@ -1,13 +1,28 @@
 {
   "name": "@bakidev/async-caller",
-  "version": "2.0.0",
+  "version": "1.0.0",
+  "description": "Async call wrapper with retry, concurrency limiting, and 429/Retry-After rate limiting on top of a token bucket.",
   "keywords": [
     "async",
     "concurrency",
-    "retry mechanism",
-    "type safety"
+    "retry",
+    "rate-limiting",
+    "retry-after",
+    "429",
+    "backoff",
+    "type safety",
+    "typescript"
   ],
   "license": "MIT",
+  "author": "Nurbaki Kasikci (https://github.com/mnkasikci)",
+  "homepage": "https://github.com/mnkasikci/async-caller#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mnkasikci/async-caller.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mnkasikci/async-caller/issues"
+  },
   "main": "lib/index.js",
   "module": "lib/index.mjs",
   "types": "lib/index.d.ts",
@@ -15,17 +30,21 @@
     "lib"
   ],
   "engines": {
-    "node": "20.x"
+    "node": ">=20"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsup",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build",
     "release": "npm publish --tag latest"
   },
   "devDependencies": {
     "@types/node": "^20.4.2",
+    "@vitest/coverage-v8": "^4.1.10",
     "changelogen": "^0.6.2",
     "eslint": "^8.50.0",
     "eslint-config-standard-with-typescript": "^39.1.0",
@@ -33,13 +52,13 @@
     "eslint-plugin-n": "^16.1.0",
     "eslint-plugin-promise": "^6.1.1",
     "tsup": "^8.0.2",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@bakidev/token-bucket": "^1.0.0"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mnkasikci/async-caller.git"
+  "publishConfig": {
+    "access": "public"
   }
 }
