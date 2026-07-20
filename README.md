@@ -1,7 +1,7 @@
-# @grapelaw/async-caller
+# @bakidev/async-caller
 
 AsyncCaller is a TypeScript library for making asynchronous calls with retry, concurrency, and rate limiting capabilities.
-It utilizes TokenBucket module that you can find at "https://www.npmjs.com/package/@grapelaw/token-bucket".
+It utilizes TokenBucket module that you can find at "https://www.npmjs.com/package/@bakidev/token-bucket".
 
 ## Features
 
@@ -18,13 +18,13 @@ It utilizes TokenBucket module that you can find at "https://www.npmjs.com/packa
 To install the package, use npm or yarn:
 
 ```sh
-npm install @grapelaw/async-caller
+npm install @bakidev/async-caller
 ```
 
 or
 
 ```sh
-yarn add @grapelaw/async-caller
+yarn add @bakidev/async-caller
 ```
 
 ## Usage
@@ -32,7 +32,7 @@ yarn add @grapelaw/async-caller
 ### Quick Start
 
 ```typescript
-import { AsyncCaller } from '@grapelaw/async-caller';
+import { AsyncCaller } from '@bakidev/async-caller';
 
 // AsyncCaller constructor takes two optional parameters, tokenBucketOptions and retryOptions
 // If they are not given as parameters, the default values (defined in the module) will be used.
@@ -52,7 +52,7 @@ asyncCaller
 ### Set the tokenBucketOptions
 
 ```typescript
-import { AsyncCaller } from '@grapelaw/async-caller';
+import { AsyncCaller } from '@bakidev/async-caller';
 
 // Here we only specify tokenBucketOptions.
 const asyncCaller = new AsyncCaller({
@@ -78,7 +78,7 @@ asyncCaller
 ```typescript
 // Instead of default options for retry we can set them ourselves.
 
-import { AsyncCaller } from '@grapelaw/async-caller';
+import { AsyncCaller } from '@bakidev/async-caller';
 
 const asyncCaller = new AsyncCaller({
   tokenBucketOptions: {
@@ -176,7 +176,7 @@ AsyncCaller: Max retries exceeded. Rejecting...
   The maximum delay between retries (i.e. maxDelayInMs) is set to 10000 milliseconds.
   backoffFactor is set to 3, so the delay will be increased 3 times after each retry.
 */
-import { AsyncCaller } from '@grapelaw/async-caller';
+import { AsyncCaller } from '@bakidev/async-caller';
 
 const asyncCaller = new AsyncCaller({
   retryOptions: {
@@ -195,7 +195,7 @@ const asyncCaller = new AsyncCaller({
 ```typescript
 /* concurrency is set to 10. So maximum 10 tasks can be handles concurrently.
  */
-import { AsyncCaller } from '@grapelaw/async-caller';
+import { AsyncCaller } from '@bakidev/async-caller';
 
 const asyncCaller = new AsyncCaller({
   retryOptions: {

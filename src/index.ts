@@ -1,4 +1,4 @@
-import { TokenBucket } from "@grapelaw/token-bucket";
+import { TokenBucket, BucketDestroyedError } from "@bakidev/token-bucket";
 import type { RetryOptions, TokenBucketOptions, ResultIdentifier } from "./types.js";
 
 const defaultTokenBucketOptions: TokenBucketOptions = {
@@ -101,6 +101,15 @@ export class AsyncCaller<U=any> {
     return this.executeAndHandleErrors(fn);
   }
 
+  /**
+   * Tear down the caller and its owned token bucket. Clears the bucket's
+   * internal timers and rejects any tasks currently waiting on tokens with a
+   * {@link BucketDestroyedError}. Idempotent — safe to call more than once.
+   */
+  public destroy () {
+    this._tokenBucket.destroy();
+  }
+
   private processTaskQueue () {
     while (this.runningTasks < this._concurrency && this.queue.length > 0) {
       this.runningTasks++;
@@ -113,7 +122,14 @@ export class AsyncCaller<U=any> {
   }
 
   private async executeWithRetry<T extends U> (fn: () => Promise<T>, tryCount: number = 1, lastResponse: any = undefined, lastError: any = undefined): Promise<T> {
-    while (!await this._tokenBucket.consumeAsync());
+    try {
+      await this._tokenBucket.consumeAsync();
+    } catch (err) {
+      if (err instanceof BucketDestroyedError)
+        this.log("Token bucket was destroyed while awaiting tokens. Aborting task.");
+      // Propagate: the caller's promise rejects rather than silently hanging.
+      throw err;
+    }
     if (tryCount > this._retryOptions.maxRetries! + 1) {
       this.log("Max retries exceeded. Rejecting...");
       if (lastError)
@@ -216,13 +232,13 @@ export class AsyncCaller<U=any> {
       if (retryAfterHeader) {
         const delay = Number.parseInt(retryAfterHeader) * 1000;
         if (!Number.isNaN(delay)) {
-          this._tokenBucket.forceWaitUntilMilisecondsPassed(delay);
+          this._tokenBucket.forceWaitUntilMillisecondsPassed(delay);
           return delay;
         } else if (Date.parse(retryAfterHeader) > 0) {
           const now = new Date().getTime();
           const retryAfter = new Date(retryAfterHeader).getTime();
           const delay = Math.max(retryAfter - now, 0);
-          this._tokenBucket.forceWaitUntilMilisecondsPassed(delay);
+          this._tokenBucket.forceWaitUntilMillisecondsPassed(delay);
           this.log(`Retry-After header found. Delay: ${delay}ms`);
 
           return delay;
@@ -253,4 +269,5 @@ export class AsyncCaller<U=any> {
   }
 }
 
+export { BucketDestroyedError } from "@bakidev/token-bucket";
 export * from "./types";
