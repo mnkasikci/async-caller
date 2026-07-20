@@ -207,10 +207,103 @@ const asyncCaller = new AsyncCaller({
   concurrency: 10,
 });
 ```
+### Safety margin
+
+- **safetyMarginMs**: Milliseconds added to `tokenBucketOptions.windowInMs` before it is handed to the token bucket. Use it to compensate for timer drift so your configured rate is never *exceeded* upstream. Defaults to `0` and is applied **uniformly** whether or not you pass `tokenBucketOptions`.
+
+```typescript
+import { AsyncCaller } from '@bakidev/async-caller';
+
+// Treat the window as 110ms internally to stay comfortably under a 10 req/s limit.
+const asyncCaller = new AsyncCaller({
+  tokenBucketOptions: { capacity: 10, fillPerWindow: 10, windowInMs: 100 },
+  safetyMarginMs: 10,
+});
+```
+
+### Error-code classification
+
+- **treatErrorCodeAsStatus**: When `true`, a numeric `error.code` is considered when extracting HTTP status codes. Defaults to `false` — non-HTTP numeric codes (gRPC status codes, some DB drivers) can fall in the 400–499 range and be misclassified as a non-retryable client error. Only enable it if your errors put a real HTTP status in `code`.
+
+## The `fn` contract: idempotent, rebuilds its own request
+
+`call(fn)` **re-invokes `fn()` from scratch on every attempt.** `fn` must therefore be idempotent and construct a *new* request each time it runs. A closure over an already-consumed stream — a `Request`/`Response` body, a Node stream, or `FormData` carrying a file stream — will fail the second attempt with a confusing "body already used" error that looks nothing like a retry problem.
+
+```typescript
+// ✅ Correct — a fresh request is built on every invocation.
+await asyncCaller.call(() => fetch('https://api.example.com/things', {
+  method: 'POST',
+  body: JSON.stringify(payload),
+}));
+
+// ❌ Wrong — the Request is built once and its body is consumed on the first try.
+const req = new Request('https://api.example.com/things', { method: 'POST', body: JSON.stringify(payload) });
+await asyncCaller.call(() => fetch(req)); // second attempt: "body already used"
+```
+
+## Module-scope construction vs. use (Cloudflare Workers / Durable Objects)
+
+An `AsyncCaller` owns a `TokenBucket`, whose timers are not permitted at module scope in the Workers runtime. The rule:
+
+> An `AsyncCaller` may be **constructed** at module scope. It must not be **used** there. All `call()` work belongs inside a request handler.
+
+```typescript
+// module scope — construction only
+const caller = new AsyncCaller({ tokenBucketOptions: { capacity: 10, fillPerWindow: 10, windowInMs: 1000 } });
+
+export default {
+  async fetch(request, env) {
+    // use it here, inside the handler
+    const data = await caller.call(() => fetch('https://api.example.com/data'));
+    return new Response(await data.text());
+  },
+};
+```
+
+## Body-encoded rate limits and errors: `CallHooks`
+
+The built-in classifier keys off HTTP status codes only. Some APIs return a `200` whose success or rate-limit status lives in the body, e.g. `{"error":{"status":"RESOURCE_EXHAUSTED","retryAfter":50}}` or `{"success":false}`. `CallHooks` give that logic a declared home instead of every call site reinventing it.
+
+```typescript
+import { AsyncCaller, type CallHooks } from '@bakidev/async-caller';
+
+const hooks: CallHooks<{ ok: boolean; retryAfterMs?: number }> = {
+  // Non-null ⇒ treat exactly as an HTTP 429 with this delay: global backpressure + retry.
+  rateLimit: (body) => (body.retryAfterMs ? { retryAfterMs: body.retryAfterMs } : null),
+  // Non-null ⇒ treat exactly as if fn() threw: retried per its own non-retryable marking,
+  // with NO effect on other callers.
+  error: (body) => (body.ok ? null : new Error('request failed')),
+};
+
+// Per-call:
+await asyncCaller.call(fetchThing, hooks);
+
+// Or as a client-level default (per-call hooks still take precedence):
+const asyncCaller = new AsyncCaller({ hooks });
+```
+
+Two semantics, deliberately distinct:
+
+> A **rate limit** throttles every caller (global backpressure on the shared bucket). An **error** retries only the call that failed.
+
+**Resolution is most-specific-first, falling through on `null`:**
+
+1. per-call hook (passed to `call`)
+2. client-level hook (passed to the constructor)
+3. the built-in HTTP `429` + `Retry-After` check
+
+Layer 3 is **unconditional** — a real HTTP `429` is a rate limit no matter what the hooks return, so overriding `rateLimit` for one odd endpoint never silently disables genuine header-based 429 handling. Return `null` from a hook to fall through to the next layer.
+
+> Note: a hook receives the already-resolved result (whatever `fn` returned), not a `Response` + parsed `body` — `AsyncCaller` never performs the fetch itself. If you need the body, have `fn` return it (or `{ res, body }`).
+
+### `retryAfterMs`
+
+`Retry-After` header parsing (integer seconds **and** HTTP-date, `Headers` object **and** plain object) is preserved for the built-in path. But a body-derived delay is already a number, so `rateLimit` returns `retryAfterMs` directly — it is used as-is, with no round-trip through a stringified-seconds representation.
+
 ## Authors
 Nurbaki Kasikci - [GitHub](https://github.com/mnkasikci)  - [Twitter](https://twitter.com/mnkasikci)
 
 ## Contribution
 We welcome contributions to improve this package and encourage users to submit bug reports, feature requests, or any other contributions that can enhance the project. Please follow the guidelines below to contribute:
-1. Report Issues: If you encounter any issues or have suggestions for improvements, please open an issue on [GitHub](https://github.com/grape-law-firm/token-bucket/issues) 
-2. Pull Requests: You are welcome to [submit Pull Requests](https://github.com/grape-law-firm/token-bucket/pulls) (PRs) for bug fixes or new features. Make sure to follow the established coding conventions and explain the purpose of your changes. 
+1. Report Issues: If you encounter any issues or have suggestions for improvements, please open an issue on [GitHub](https://github.com/mnkasikci/async-caller/issues) 
+2. Pull Requests: You are welcome to [submit Pull Requests](https://github.com/mnkasikci/async-caller/pulls) (PRs) for bug fixes or new features. Make sure to follow the established coding conventions and explain the purpose of your changes. 
