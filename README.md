@@ -303,6 +303,16 @@ Layer 3 is **unconditional** — a real HTTP `429` is a rate limit no matter wha
 ## Authors
 Nurbaki Kasikci - [GitHub](https://github.com/mnkasikci)  - [Twitter](https://twitter.com/mnkasikci)
 
+## Credits
+
+This package began as a fork of an async caller I built while working at
+[Grape Law Firm](https://github.com/grape-law-firm), which was also published as
+[@grapelaw/async-caller](https://www.npmjs.com/package/@grapelaw/async-caller)
+([source](https://github.com/grape-law-firm/async-caller)). It is republished
+here with their permission. This version adds bug fixes and full test coverage.
+The original work is MIT-licensed (Copyright © 2024 Grape Law Firm); that notice
+is retained alongside mine in [LICENSE](LICENSE).
+
 ## Contribution
 We welcome contributions to improve this package and encourage users to submit bug reports, feature requests, or any other contributions that can enhance the project. Please follow the guidelines below to contribute:
 1. Report Issues: If you encounter any issues or have suggestions for improvements, please open an issue on [GitHub](https://github.com/mnkasikci/async-caller/issues) 
